@@ -8,24 +8,24 @@ import Lexer
 data ScopeVariableTypes = ScopeVariableTypes [(String, Type)] deriving Show
 
 data ScopeClassDefinition = ScopeClassDefinition
-	String           {-argument name-}
-	Kind             {-argument term kind-}
-	[String]         {-constraints on argument-}
-	[(String, Type)] {-body items-}
-	deriving Show
+  String           {-argument name-}
+  Kind             {-argument term kind-}
+  [String]         {-constraints on argument-}
+  [(String, Type)] {-body items-}
+  deriving Show
 
 data ScopeTypeDefinition
-	= ScopeTypeDefinitionAbstract Kind
-	-- TODO: struct, enum
-	deriving Show
+  = ScopeTypeDefinitionAbstract Kind
+  -- TODO: struct, enum
+  deriving Show
 
 data Scope = Scope
-	{ scopeVariableType :: [(String, Type)]
-	, scopeClassDefinitions :: [(String, ScopeClassDefinition)]
-	, scopeTypeDefinitions :: [(String, ScopeTypeDefinition)]
-	, scopeFrozenStack :: [String]
-	, scopeInstances :: [((String, String), Type)] -- ((class, typename), full argument spec)
-	} deriving Show
+  { scopeVariableType :: [(String, Type)]
+  , scopeClassDefinitions :: [(String, ScopeClassDefinition)]
+  , scopeTypeDefinitions :: [(String, ScopeTypeDefinition)]
+  , scopeFrozenStack :: [String]
+  , scopeInstances :: [((String, String), Type)] -- ((class, typename), full argument spec)
+  } deriving Show
 
 variableTypeOf :: Scope -> String -> Maybe Type
 variableTypeOf scope name = lookup name $ scopeVariableType scope
@@ -52,10 +52,10 @@ isIdentifierDefined scope name
 
 nameOfType :: Type -> Maybe Token
 nameOfType (Type (TypeHeader free _) term) = search term where
-	search (TName name)
-		|contents name `elem` map (contents . fst) free = Just name
-		|otherwise = Nothing
-	search (left `TApply` _) = search left
+  search (TName name)
+    |contents name `elem` map (contents . fst) free = Just name
+    |otherwise = Nothing
+  search (left `TApply` _) = search left
 
 declareVariable :: Scope -> String -> Type -> Scope
 declareVariable scope n t = scope { scopeVariableType = (n, t) : scopeVariableType scope }
@@ -73,20 +73,20 @@ declareAbstractTypes scope (x : xs) = declareAbstractTypes (declareAbstractType 
 
 declareClass :: Scope -> Token -> Token -> Kind -> [Token] -> [(Token, Type)] -> Scope
 declareClass scope name argument kind supers members = declareVariables (scope
-	{ scopeClassDefinitions = (contents name, ScopeClassDefinition (contents argument) kind (map contents supers) members') : scopeClassDefinitions scope
-	}) members'
-	where
-	members' = map updateMember members
-	updateMember (n, t) = (contents n, updateType t)
-	updateType (Type header term) = Type (updateHeader header) term
-	updateHeader (TypeHeader free constraints) = TypeHeader ((argument, kind) : free) (ClassConstraint argument name : constraints)
+  { scopeClassDefinitions = (contents name, ScopeClassDefinition (contents argument) kind (map contents supers) members') : scopeClassDefinitions scope
+  }) members'
+  where
+  members' = map updateMember members
+  updateMember (n, t) = (contents n, updateType t)
+  updateType (Type header term) = Type (updateHeader header) term
+  updateHeader (TypeHeader free constraints) = TypeHeader ((argument, kind) : free) (ClassConstraint argument name : constraints)
 
 declareInstance :: Scope -> String -> String -> Type -> Scope
 declareInstance scope className argumentName t = scope {
-	scopeInstances = ((className, argumentName), t) : scopeInstances scope
-	}
+  scopeInstances = ((className, argumentName), t) : scopeInstances scope
+  }
 
 freezeVariable :: Scope -> String -> Scope
 freezeVariable scope var = scope {
-	scopeFrozenStack = var : scopeFrozenStack scope
-	}
+  scopeFrozenStack = var : scopeFrozenStack scope
+  }
