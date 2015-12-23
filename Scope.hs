@@ -42,7 +42,13 @@ isVariableFrozen scope name = name `elem` scopeFrozenStack scope
 hasClassInstance :: Scope -> String -> String -> Bool
 hasClassInstance scope className argumentName = (className, argumentName) `elem` map fst (scopeInstances scope)
 
---
+isIdentifierDefined :: Scope -> String -> Bool
+isIdentifierDefined scope name
+  | name `elem` (map fst $ scopeVariableType scope) = True
+  | name `elem` (map fst $ scopeClassDefinitions scope) = True
+  | name `elem` (map fst $ scopeTypeDefinitions scope) = True
+  | otherwise = False
+
 
 nameOfType :: Type -> Maybe Token
 nameOfType (Type (TypeHeader free _) term) = search term where
