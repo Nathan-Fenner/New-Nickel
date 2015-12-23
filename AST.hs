@@ -53,11 +53,13 @@ data ModuleDeclaration
   deriving Show
 
 data Expression
-  = LiteralNumber Double
-  | LiteralString String
-  | Application Expression Expression
+  = LiteralNumber Double -- 1..0
+  | LiteralString String -- "1"
+  | Application Expression Expression -- print 5
   | Function TypeHeader [(Token, Term)] Term [Statement]
-  | Reference Reference
+  | Reference Reference -- x
+  | Access Expression Expression -- (map (+1) list)[5]
+  | Dot Expression Token -- (blah + 1).blah
   deriving Show
 
 data Module = Module Token [ModuleDeclaration] deriving Show

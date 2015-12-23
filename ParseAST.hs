@@ -241,6 +241,28 @@ parseExpressionReference = parseReference ##> \reference -> do
   return $ Reference reference
 parseExpressionAtom :: Parse (Maybe Expression)
 parseExpressionAtom = parseParens (fmap Just parseExpression) $ parseExpressionLiteral ||| parseExpressionFunction ||| parseExpressionReference
+parseExpressionAtomAccess :: Parse (Maybe Expression)
+parseExpressionAtomAccess = parseExpressionAtom ##> \atom -> parseSuffixes atom
+  where
+  parseSuffixDot :: Parse (Maybe Token)
+  parseSuffixDot = checkAt LexSpecial "." ### parseClass LexName
+  parseSuffixAccess :: Parse (Maybe Expression)
+  parseSuffixAccess = checkAt LexSpecial "[" ##> \openBrace -> do
+    index <- parseExpression
+    close <- checkAt LexSpecial "]"
+    case close of
+      Just _ -> return index
+      Nothing -> parseError $ Error $ "expected a `]` to close `[` opened at " ++ show openBrace ++ "."
+  parseSuffix :: Parse (Maybe (Either Token Expression))
+  parseSuffix = fmap (fmap Left) parseSuffixDot ||| fmap (fmap Right) parseSuffixAccess
+  parseSuffixes :: Expression -> Parse Expression
+  parseSuffixes e = do
+    suffix <- parseSuffix
+    case suffix of
+      Nothing -> return e
+      Just (Left x) -> parseSuffixes (Dot e x)
+      Just (Right x) -> parseSuffixes (Access e x)
+
 parseExpressionApplication :: Parse (Maybe Expression)
 parseExpressionApplication = do
   collection <- parseMany parseExpressionAtom
@@ -267,7 +289,7 @@ parseExpressionOperatorTree follow ops rest = do
 parseExpressionOperatorPrefix :: Parse Expression -> [String] -> [(Maybe OpDirection, [String])] -> Parse Expression
 parseExpressionOperatorPrefix follow pre rest = checkAny LexOperator pre &&& (\op -> do
   right <- this
-  return $ Reference (RName op) `Application` right 
+  return $ Reference (RName op) `Application` right
   , next)
   where
   this = parseExpressionOperatorPrefix follow pre rest
