@@ -28,7 +28,7 @@ parseBraces item = do
     )
 
 parseKindConcrete :: Parse Kind
-parseKindConcrete = expect LexName "type" >> return Concrete
+parseKindConcrete = expect LexSpecial "type" >> return Concrete
 parseKindAtom :: Parse Kind
 parseKindAtom = parseParens parseKind parseKindConcrete
 parseKindArrow :: Parse Kind
