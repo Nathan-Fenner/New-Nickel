@@ -59,7 +59,7 @@ declareVariables scope [] = scope
 declareVariables scope ((n, t) : rest) = declareVariables (declareVariable scope n t) rest
 
 declareAbstractType :: Scope -> (String, Kind) -> Scope
-declareAbstractType scope (name, kind) = scope{scopeTypeDefinitions = ScopeTypeDefinitionAbstract name kind : scopeTypeDefinitions scope}
+declareAbstractType scope (name, kind) = scope{scopeTypeDefinitions = (name, ScopeTypeDefinitionAbstract kind) : scopeTypeDefinitions scope}
 
 declareAbstractTypes :: Scope -> [(String, Kind)] -> Scope
 declareAbstractTypes scope [] = scope
