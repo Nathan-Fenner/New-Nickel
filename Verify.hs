@@ -56,20 +56,23 @@ checkInstanceStatement :: Scope -> Type -> InstanceStatement -> Check InstanceSt
 checkInstanceStatement = undefined
 
 checkClassInstance :: Scope -> (Type, Token, [InstanceStatement]) -> Check ModuleDeclaration
-checkClassInstance scope (argument, className, body) = case classDefinitionOf scope (contents className) of
+checkClassInstance scope (argument, className, instanceBody) = case classDefinitionOf scope (contents className) of
   Nothing -> reject $ "cannot create instance for class `" ++ contents className ++ "` because it has not been defined"
   Just (ScopeClassDefinition argumentName argumentKind argumentConstraints classBody) -> do
-    argument' <- checkType scope argument -- argument must be well-formed
-    checkDesiredForm argument' -- argument must have desired form
+    argument' <- checkType scope argument -- argument must be a well-formed type
+    checkDesiredForm argument' -- argument must have desired form (a name, followed by free variables)
     checkExpectedKind scope argument' argumentKind -- argument must have desired type
     checkConstraintSatisfaction scope argument' argumentConstraints -- argument must satisfy conditions
-    case [name | (name, _) <- classBody, not $ name `elem` map nameOfItem body] of
+    case [name | (name, _) <- classBody, not $ name `elem` map nameOfItem instanceBody] of
       [] -> return ()
-      missing -> reject $ "an instance declaration for `" ++ contents className ++ "` must include all of the following definitions:" ++ concat (map (" "++) missing)
+      missing -> reject $ "an instance declaration for `" ++ contents className ++ "` must include all of the following definitions (which are missing):" ++ concat (map (" "++) missing)
+    case [nameOfItem statement | statement <- instanceBody, not $ nameOfItem statement `elem` map fst classBody] of
+      [] -> return ()
+      extra -> reject $ "the class `" ++ contents className ++ "` does not have any of the following members: " ++ concat (map (" " ++) extra)
     let innerScope = undefined
     -- In addition, it must consist exclusively of a typename, followed by some number of distinct free variables, possibly each with class constraints.
-    body' <- mapM (checkInstanceStatement scope undefined) body -- TODO: figure out the expected type for each, based on class definition
-    return $ ClassInstance argument' className body'
+    instanceBody' <- mapM (checkInstanceStatement scope undefined) instanceBody -- TODO: figure out the expected type for each, based on class definition
+    return $ ClassInstance argument' className instanceBody'
   where
   nameOfItem :: InstanceStatement -> String
   nameOfItem (ClassImplement name _) = contents name

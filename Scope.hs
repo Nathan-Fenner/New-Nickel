@@ -8,10 +8,11 @@ import Lexer
 data ScopeVariableTypes = ScopeVariableTypes [(String, Type)] deriving Show
 
 data ScopeClassDefinition = ScopeClassDefinition
-  String           {-argument name-}
-  Kind             {-argument term kind-}
-  [String]         {-constraints on argument-}
-  [(String, Type)] {-body items-}
+  { scopeClassDefinitionName :: String           {-argument name-}
+  , scopeClassDefinitionTermKind :: Kind             {-argument term kind-}
+  , scopeClassDefinitionSupers :: [String]         {-constraints on argument-}
+  , scopeClassDefinitionBody :: [(String, Type)] {-body items-}
+  }
   deriving Show
 
 data ScopeTypeDefinition
