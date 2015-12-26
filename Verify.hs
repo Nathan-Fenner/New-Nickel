@@ -40,6 +40,9 @@ initialScope = Scope
   where
   concrete name = (name, ScopeTypeDefinitionAbstract Concrete)
 
+checkExpressionWithExpectedType :: Scope -> Type -> Expression -> Check Expression
+checkExpressionWithExpectedType = undefined
+
 checkType :: Scope -> Type -> Check Type
 checkType = undefined
 
@@ -60,7 +63,10 @@ tryIntroduceTypeHeader = undefined
 
 checkClassInstanceStatement :: Scope -> [(String, Type)] -> InstanceStatement -> Check InstanceStatement
 checkClassInstanceStatement scope classBody (ClassImplement name expression) = case lookup (contents name) classBody of
-  Nothing -> reject $ "the class "
+  Nothing -> reject $ "the class has no method called `" ++ contents name ++ "`"
+  Just expected -> do
+    expression' <- checkExpressionWithExpectedType scope expected expression
+    return $ ClassImplement name expression'
 
 checkClassInstance :: Scope -> (Type, Token, [InstanceStatement]) -> Check ModuleDeclaration
 checkClassInstance scope (argument@(Type argumentHeader instanceArgumentTerm), className, instanceBody) = case classDefinitionOf scope (contents className) of
