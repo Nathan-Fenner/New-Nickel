@@ -9,11 +9,12 @@ import Scope
 import Control.Applicative
 
 
-data Check x = Check x | Fail String deriving (Show, Functor)
+data Check x = Check x | Fail [String] deriving (Show, Functor)
 
 instance Applicative Check where
   pure = Check
   Check f <*> Check x = Check (f x)
+  Fail left <*> Fail right = Fail (left ++ right)
   Fail msg <*> _ = Fail msg
   _ <*> Fail msg = Fail msg
 instance Monad Check where
@@ -22,7 +23,7 @@ instance Monad Check where
   Fail msg >>= _ = Fail msg
 
 reject :: String -> Check any
-reject = Fail
+reject x = Fail [x]
 
 assert :: Maybe x -> String -> Check x
 assert Nothing msg = reject msg
@@ -65,7 +66,7 @@ checkClassInstance scope (argument, className, body) = case classDefinitionOf sc
     case [name | (name, _) <- classBody, not $ name `elem` map nameOfItem body] of
       [] -> return ()
       missing -> reject $ "an instance declaration for `" ++ contents className ++ "` must include all of the following definitions:" ++ concat (map (" "++) missing)
-    let innerScope =
+    let innerScope = undefined
     -- In addition, it must consist exclusively of a typename, followed by some number of distinct free variables, possibly each with class constraints.
     body' <- mapM (checkInstanceStatement scope undefined) body -- TODO: figure out the expected type for each, based on class definition
     return $ ClassInstance argument' className body'
@@ -91,26 +92,21 @@ checkLetDeclaration :: Scope -> LetDeclaration -> Check LetDeclaration
 checkLetDeclaration scope (LetVarDeclare var t e) = checkVariableDeclaration scope var t (Just e)
 
 forwardDeclareLetDeclaration :: Scope -> LetDeclaration -> Check Scope
-forwardDeclareLetDeclaration scope (LetVarDeclare var t _) = do
-  case variableTypeOf scope (contents var) of
-    Just _ -> reject $ "variable `" ++ contents var ++ "` has already been declared"
-    Nothing -> return ()
-  return $ freezeVariable (declareVariable scope (contents var) t) (contents var)
+forwardDeclareLetDeclaration scope (LetVarDeclare var t _)
+  | isIdentifierDefined scope (contents var) = reject $ "variable `" ++ contents var ++ "` cannot be declared because it was already declared at (TODO)"
+  | otherwise = return $ declareFrozenVariable scope (contents var) t
 
 forwardDeclareModuleDeclaration :: Scope -> ModuleDeclaration -> Check Scope
 forwardDeclareModuleDeclaration scope (ModuleLet dec) = forwardDeclareLetDeclaration scope dec
-forwardDeclareModuleDeclaration scope (ClassDefinition header@(TypeHeader free constraints) argument className body) = do
-  case classDefinitionOf scope (contents className) of
-    Just _ -> reject $ "class `" ++ contents className ++ "` has already been declared"
-    Nothing -> return ()
+forwardDeclareModuleDeclaration scope (ClassDefinition header@(TypeHeader free constraints) argument className body)
+  |isIdentifierDefined scope (contents className) = reject $ "class `" ++ contents className ++ "` cannot be defined: `" ++ contents className ++ "` has already been declared at (TODO)`"
+  |otherwise = do
   case contents argument `elem` map (contents . fst) free of
     True -> return ()
     False -> reject $ "class `" ++ contents className ++ "` has ill-formed argument; identifier `" ++ contents argument ++ "` is not one of the free variables in " ++ show header
   kind <- assert (lookup (contents className) $ map (\(n,k) -> (contents n,k)) free) $ "argument `" ++ contents argument ++ "` to class `" ++ contents className ++ "` must be present in the header " ++ show header
-
   -- verify here that the argument type is discoverable from all member types
   mapM_ checkDiscoverable body
-
   return $ declareClass scope className argument kind supers members
   where
   supers = [ super | ClassConstraint constrained super <- constraints, contents constrained == contents argument ]
@@ -122,8 +118,6 @@ forwardDeclareModuleDeclaration scope (ClassDefinition header@(TypeHeader free c
     where
     notFoundIn (TName name) = contents name /= contents argument
     notFoundIn (left `TApply` right) = notFoundIn left && notFoundIn right
-
-
 forwardDeclareModuleDeclaration scope (ClassInstance argument className _) = do
   case nameOfType argument of
     Nothing -> reject $ "cannot create instance for class `" ++ contents className ++ "` for type `" ++ show argument ++ "` because it is not a named type"

@@ -64,6 +64,9 @@ declareVariables :: Scope -> [(String, Type)] -> Scope
 declareVariables scope [] = scope
 declareVariables scope ((n, t) : rest) = declareVariables (declareVariable scope n t) rest
 
+declareFrozenVariable :: Scope -> String -> Type -> Scope
+declareFrozenVariable scope name typ = freezeVariable (declareFrozenVariable scope name typ) name
+
 declareAbstractType :: Scope -> (String, Kind) -> Scope
 declareAbstractType scope (name, kind) = scope{scopeTypeDefinitions = (name, ScopeTypeDefinitionAbstract kind) : scopeTypeDefinitions scope}
 
