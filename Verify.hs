@@ -55,23 +55,30 @@ checkClassDefinition = undefined
 checkInstanceStatement :: Scope -> Type -> InstanceStatement -> Check InstanceStatement
 checkInstanceStatement = undefined
 
+tryIntroduceTypeHeader :: Scope -> TypeHeader -> Check Scope
+tryIntroduceTypeHeader = undefined
+
+checkClassInstanceStatement :: Scope -> [(String, Type)] -> InstanceStatement -> Check InstanceStatement
+checkClassInstanceStatement scope classBody (ClassImplement name expression) = case lookup (contents name) classBody of
+  Nothing -> reject $ "the class "
+
 checkClassInstance :: Scope -> (Type, Token, [InstanceStatement]) -> Check ModuleDeclaration
-checkClassInstance scope (argument, className, instanceBody) = case classDefinitionOf scope (contents className) of
+checkClassInstance scope (argument@(Type argumentHeader instanceArgumentTerm), className, instanceBody) = case classDefinitionOf scope (contents className) of
   Nothing -> reject $ "cannot create instance for class `" ++ contents className ++ "` because it has not been defined"
-  Just (ScopeClassDefinition argumentName argumentKind argumentConstraints classBody) -> do
+  Just (ScopeClassDefinition classArgumentName classArgumentKind classArgumentConstraints classBody) -> do
     argument' <- checkType scope argument -- argument must be a well-formed type
     checkDesiredForm argument' -- argument must have desired form (a name, followed by free variables)
-    checkExpectedKind scope argument' argumentKind -- argument must have desired type
-    checkConstraintSatisfaction scope argument' argumentConstraints -- argument must satisfy conditions
+    checkExpectedKind scope argument' classArgumentKind -- argument must have desired type
+    checkConstraintSatisfaction scope argument' classArgumentConstraints -- argument must satisfy conditions
     case [name | (name, _) <- classBody, not $ name `elem` map nameOfItem instanceBody] of
       [] -> return ()
       missing -> reject $ "an instance declaration for `" ++ contents className ++ "` must include all of the following definitions (which are missing):" ++ concat (map (" "++) missing)
-    case [nameOfItem statement | statement <- instanceBody, not $ nameOfItem statement `elem` map fst classBody] of
-      [] -> return ()
-      extra -> reject $ "the class `" ++ contents className ++ "` does not have any of the following members: " ++ concat (map (" " ++) extra)
-    let innerScope = undefined
-    -- In addition, it must consist exclusively of a typename, followed by some number of distinct free variables, possibly each with class constraints.
-    instanceBody' <- mapM (checkInstanceStatement scope undefined) instanceBody -- TODO: figure out the expected type for each, based on class definition
+    -- It declares the free variables in the instance header, so in the body they're abstract.
+    innerScope <- tryIntroduceTypeHeader scope argumentHeader
+    -- We specialize the class's definitions for this particular instance, so that we can do typechecking.
+    let specializedClassBody = map (\(n, v) -> (n, specializeType classArgumentName instanceArgumentTerm v)) classBody
+    instanceBody' <- mapM (checkClassInstanceStatement innerScope specializedClassBody) instanceBody
+    -- And then we're done, if all the above checks have passed.
     return $ ClassInstance argument' className instanceBody'
   where
   nameOfItem :: InstanceStatement -> String
@@ -86,6 +93,12 @@ checkClassInstance scope (argument, className, instanceBody) = case classDefinit
       |contents arg `elem` sofar = reject $ "the free variable `" ++ contents arg ++ "` appeared twice in the type of the instance parameter for `" ++ show argument ++ "` for class `" ++ contents className ++ "`"
       |otherwise = go (contents arg : sofar) left
     go _ (_ `TApply` right) = reject $ "the argument `" ++ show right ++ "` is not allowed for an argument in a type instance for class `" ++ contents className ++ "` because it is not a simple free variable."
+  specializeType :: String -> Term -> Type -> Type
+  specializeType name with (Type header term) = Type header (go term) where
+    go (TName atom)
+      |contents atom == name = with
+      |otherwise = TName atom
+    go (left `TApply` right) = go left `TApply` go right
 
 -- note: do not declare
 checkVariableDeclaration :: Scope -> Token -> Type -> Maybe Expression -> Check LetDeclaration
