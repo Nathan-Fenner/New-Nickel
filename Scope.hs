@@ -85,6 +85,13 @@ declareClass scope name argument kind supers members = declareVariables (scope
   updateType (Type header term) = Type (updateHeader header) term
   updateHeader (TypeHeader free constraints) = TypeHeader ((argument, kind) : free) (ClassConstraint argument name : constraints)
 
+declareConstraintSatisfaction :: Scope -> String -> Token -> Scope
+declareConstraintSatisfaction scope className abstractName = declareInstance scope className (contents abstractName) (Type (TypeHeader [] []) (TName abstractName))
+
+declareConstraintSatisfactions :: Scope -> [(String, Token)] -> Scope
+declareConstraintSatisfactions scope [] = scope
+declareConstraintSatisfactions scope ((n,t):cs) = declareConstraintSatisfactions (declareConstraintSatisfaction scope n t) cs
+
 declareInstance :: Scope -> String -> String -> Type -> Scope
 declareInstance scope className argumentName t = scope {
   scopeInstances = ((className, argumentName), t) : scopeInstances scope

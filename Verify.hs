@@ -58,8 +58,13 @@ checkClassDefinition = undefined
 checkInstanceStatement :: Scope -> Type -> InstanceStatement -> Check InstanceStatement
 checkInstanceStatement = undefined
 
-tryIntroduceTypeHeader :: Scope -> TypeHeader -> Check Scope
-tryIntroduceTypeHeader = undefined
+introduceTypeHeader :: Scope -> TypeHeader -> Scope
+introduceTypeHeader scope (TypeHeader free constraints) = let
+  scope' = declareAbstractTypes scope (map (\(n, k) -> (contents n, k)) free)
+  scope'' = declareConstraintSatisfactions scope' (map (\(ClassConstraint free className) -> (contents className, free)) constraints)
+  -- since it's well-formed, everything is okay
+  in
+  scope''
 
 checkClassInstanceStatement :: Scope -> [(String, Type)] -> InstanceStatement -> Check InstanceStatement
 checkClassInstanceStatement scope classBody (ClassImplement name expression) = case lookup (contents name) classBody of
@@ -80,7 +85,7 @@ checkClassInstance scope (argument@(Type argumentHeader instanceArgumentTerm), c
       [] -> return ()
       missing -> reject $ "an instance declaration for `" ++ contents className ++ "` must include all of the following definitions (which are missing):" ++ concat (map (" "++) missing)
     -- It declares the free variables in the instance header, so in the body they're abstract.
-    innerScope <- tryIntroduceTypeHeader scope argumentHeader
+    let innerScope = introduceTypeHeader scope argumentHeader
     -- We specialize the class's definitions for this particular instance, so that we can do typechecking.
     let specializedClassBody = map (\(n, v) -> (n, specializeType classArgumentName instanceArgumentTerm v)) classBody
     instanceBody' <- mapM (checkClassInstanceStatement innerScope specializedClassBody) instanceBody
@@ -106,12 +111,11 @@ checkClassInstance scope (argument@(Type argumentHeader instanceArgumentTerm), c
       |otherwise = TName atom
     go (left `TApply` right) = go left `TApply` go right
 
--- note: do not declare
-checkVariableDeclaration :: Scope -> Token -> Type -> Maybe Expression -> Check LetDeclaration
-checkVariableDeclaration = undefined
-
 checkLetDeclaration :: Scope -> LetDeclaration -> Check LetDeclaration
-checkLetDeclaration scope (LetVarDeclare var t e) = checkVariableDeclaration scope var t (Just e)
+checkLetDeclaration scope (LetVarDeclare var t e) = do
+  t' <- checkType scope t
+  e' <- checkExpressionWithExpectedType scope t e
+  return $ LetVarDeclare var t' e'
 
 forwardDeclareLetDeclaration :: Scope -> LetDeclaration -> Check Scope
 forwardDeclareLetDeclaration scope (LetVarDeclare var t _)
