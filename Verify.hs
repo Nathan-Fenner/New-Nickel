@@ -53,10 +53,12 @@ checkConstraintSatisfaction :: Scope -> Type -> [String] -> Check ()
 checkConstraintSatisfaction = undefined
 
 checkClassDefinition :: Scope -> (TypeHeader, Token, Token, [ClassStatement]) -> Check ModuleDeclaration
-checkClassDefinition = undefined
+checkClassDefinition scope (header, argumentName, className, body) = undefined
 
 checkInstanceStatement :: Scope -> Type -> InstanceStatement -> Check InstanceStatement
-checkInstanceStatement = undefined
+checkInstanceStatement scope expectedType (ClassImplement name expression) = do
+  expression' <- checkExpressionWithExpectedType scope expectedType expression
+  return (ClassImplement name expression')
 
 introduceTypeHeader :: Scope -> TypeHeader -> Scope
 introduceTypeHeader scope (TypeHeader free constraints) = let
@@ -132,13 +134,17 @@ forwardDeclareModuleDeclaration scope (ClassDefinition header@(TypeHeader free c
     False -> reject $ "class `" ++ contents className ++ "` has ill-formed argument; identifier `" ++ contents argument ++ "` is not one of the free variables in " ++ show header
   kind <- assert (lookup (contents className) $ map (\(n,k) -> (contents n,k)) free) $ "argument `" ++ contents argument ++ "` to class `" ++ contents className ++ "` must be present in the header " ++ show header
   -- verify here that the argument type is discoverable from all member types
-  mapM_ checkDiscoverable body
+  mapM_ checkDiscoverable body -- note: also checks that body variables don't overlap anything.
+  case [name | (ClassDeclare name _) <- body, length [() | (ClassDeclare name' _) <- body, contents name == contents name'] > 1 ] of
+    [] -> return ()
+    duplicates -> reject $ "the following items are duplicated in the class: " ++ show duplicates
   return $ declareClass scope className argument kind supers members
   where
   supers = [ super | ClassConstraint constrained super <- constraints, contents constrained == contents argument ]
   members = map memberFromBody body
   memberFromBody (ClassDeclare n t) = (n, t)
   checkDiscoverable (ClassDeclare item itemType@(Type (TypeHeader exclude _) term))
+    |isIdentifierDefined scope (contents item) = reject $ "class `" ++ contents className ++ "` cannot define member `" ++ contents item ++ "` because that name is already in scope, declared at (TODO)"
     |contents argument `elem` map (contents . fst) exclude || notFoundIn term = reject $ "argument `" ++ contents argument ++ "` of type class definition `" ++ contents className ++ "` does not appear in the type of class body item `" ++ contents item ++ "`, namely " ++ show itemType
     |otherwise = return ()
     where
