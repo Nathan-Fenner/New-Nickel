@@ -7,59 +7,59 @@ data Kind
   | Higher Kind Kind
   deriving Show
 
-data Term
+data Term status
   = TName Token
-  | TApply Term Term
+  | TApply (Term status) (Term status)
   deriving Show
 
 -- TODO: multiparameter typeclasses
-data Constraint = ClassConstraint Token{-free-} Token{-class-} deriving Show
+data Constraint status = ClassConstraint Token{-free-} Token{-class-} deriving Show
 
-data TypeHeader = TypeHeader [(Token, Kind)] [Constraint] deriving Show
+data TypeHeader status = TypeHeader [(Token, Kind)] [Constraint status] deriving Show
 
-data Type = Type TypeHeader Term deriving Show
+data Type status = Type (TypeHeader status) (Term status) deriving Show
 
-data LetDeclaration
-  = LetVarDeclare Token Type Expression
+data LetDeclaration status
+  = LetVarDeclare Token (Type status) (Expression status)
   deriving Show
 
-data Reference
+data Reference status
   = RName Token
-  | RDot Reference Token
-  | RAccess Reference Expression
+  | RDot (Reference status) Token
+  | RAccess (Reference status) (Expression status)
   deriving Show
-data Statement
-  = VarDeclare Token Type (Maybe Expression)
-  | If Expression [Statement] [Statement]
-  | While Expression [Statement] -- TODO: "else"
+data Statement status
+  = VarDeclare Token (Type status) (Maybe (Expression status))
+  | If (Expression status) [Statement status] [Statement status]
+  | While (Expression status) [Statement status] -- TODO: "else"
   -- TODO: for
-  | Let [LetDeclaration]
-  | VarAssign Reference Expression
-  | Do Expression
+  | Let [LetDeclaration status]
+  | VarAssign (Reference status) (Expression status)
+  | Do (Expression status)
   deriving Show
 
-data ClassStatement
-  = ClassDeclare Token Type -- TODO: defaults
+data ClassStatement status
+  = ClassDeclare Token (Type status) -- TODO: defaults
   deriving Show
 
-data InstanceStatement
-  = ClassImplement Token Expression
+data InstanceStatement status
+  = ClassImplement Token (Expression status)
   deriving Show
 
-data ModuleDeclaration
-  = ModuleLet LetDeclaration
-  | ClassDefinition TypeHeader Token Token [ClassStatement]
-  | ClassInstance Type Token [InstanceStatement]
+data ModuleDeclaration status
+  = ModuleLet (LetDeclaration status)
+  | ClassDefinition (TypeHeader status) Token Token [ClassStatement status]
+  | ClassInstance (Type status) Token [InstanceStatement status]
   deriving Show
 
-data Expression
+data Expression status
   = LiteralNumber Double -- 1..0
   | LiteralString String -- "1"
-  | Application Expression Expression -- print 5
-  | Function TypeHeader [(Token, Term)] Term [Statement]
-  | Reference Reference -- x
-  | Access Expression Expression -- (map (+1) list)[5]
-  | Dot Expression Token -- (blah + 1).blah
+  | Application (Expression status) (Expression status) -- print 5
+  | Function (TypeHeader status) [(Token, Term status)] (Term status) [Statement status]
+  | Reference (Reference status) -- x.y[3].z
+  | Access (Expression status) (Expression status) -- (map (+1) list)[5]
+  | Dot (Expression status) Token -- (blah + 1).blah
   deriving Show
 
-data Module = Module Token [ModuleDeclaration] deriving Show
+data Module status = Module Token [ModuleDeclaration status] deriving Show
